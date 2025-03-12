@@ -11,6 +11,9 @@
 *.mdf
 *.ldf
 *.sln.docstates
+.vscode/
+RegistryMonitorService/.vs/
+RegistryMonitorService/.vscode/
 
 # Build results
 [Dd]ebug/

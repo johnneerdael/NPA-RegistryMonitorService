@@ -9,6 +9,7 @@ Registry Monitor Service watches for changes to specific registry keys related t
 ## Features
 
 - Monitors NetSkope NPA Tunnel registry for connection status changes
+- **Built-in Network Location Awareness (NLA) reevaluation** for immediate network profile updates
 - Executes custom scripts when connection status changes
 - Cross-platform support for x64, x86, and ARM64 architectures
 - Resilient registry monitoring with automatic recovery
@@ -43,69 +44,63 @@ To uninstall the service manually:
 
 1. Open PowerShell as Administrator
 2. Navigate to the installation directory or original extracted folder
-3. **Run the uninstallation script**:
+3. **Run the uninstallation script**powershell.exe -ExecutionPolicy Bypass -File "%ProgramFiles%\RegistryMonitor\Uninstall.ps1":
   ```powershell
   .\Uninstall.ps1
   ```
 
+## Network Location Awareness (NLA) Integration
+Registry Monitor Service now includes built-in Network Location Awareness reevaluation capabilities, automatically triggered when NetSkope NPA Tunnel status changes:
+
+- **Automatic detection**: The service detects NetSkope connection status changes and immediately triggers NLA reevaluation
+- **Multiple methods**: Uses several techniques to ensure NLA reevaluation across different Windows versions
+- **No service restart required**: Uses Windows APIs instead of restarting services, for minimal disruption
+- **Windows 10/11 optimized**: Special handling for modern Windows versions
+
+This feature enables faster network profile updates after VPN connection status changes, without needing to restart the Network Location Awareness service.
+
 ## Custom Action Scripts
 
-The service can execute custom scripts when the NetSkope NPA Tunnel status changes. This is useful for performing actions like restarting network services when the connection status changes.
+The service can execute custom scripts when the NetSkope NPA Tunnel status changes. This is useful for performing additional actions when connection status changes.
+
+Note: With the built-in NLA reevaluation feature, scripts for basic NLA refresh are no longer necessary. Custom scripts are now optional for specialized use cases.
 
 ### Setting Up Custom Scripts
 
 1. Create a script file in the %ProgramFiles%\RegistryMonitor\Scripts\ directory (created during installation)
 2. Edit the ChangeHandler.ps1 file to uncomment and modify the script execution sections
 
-### Example: Restart NLA Service When Connection Changes
+### Example: Additional Network Actions When Connection Changes
 
-1. **Create a script to restart the Network Location Awareness service when disconnected**:
 ```powershell
 # filepath: %ProgramFiles%\RegistryMonitor\Scripts\OnDisconnected.ps1
 # Log start of script execution
 $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-$logFile = Join-Path -Path $env:ProgramFiles -ChildPath "RegistryMonitor\Logs\nla_restart.log"
-"[$timestamp] Restarting NLA service after NetSkope disconnection..." | Out-File -Append $logFile
+$logFile = Join-Path -Path $env:ProgramFiles -ChildPath "RegistryMonitor\Logs\network_actions.log"
+"[$timestamp] Performing additional network actions after NetSkope disconnection..." | Out-File -Append $logFile
 
 try {
     # Wait a few seconds to ensure network transition is complete
-    Start-Sleep -Seconds 5
+    Start-Sleep -Seconds 3
     
-    # Restart the Network Location Awareness service
-    Restart-Service -Name "NlaSvc" -Force
+    # Example: Clear DNS cache
+    ipconfig /flushdns
     
-    "[$timestamp] NLA service restarted successfully" | Out-File -Append $logFile
+    # Example: Update other network configurations
+    # Add your custom network configuration commands here
+    
+    "[$timestamp] Network actions completed successfully" | Out-File -Append $logFile
 } catch {
-    "[$timestamp] Error restarting NLA service: $_" | Out-File -Append $logFile
-}
-```
-2. **Modify the ChangeHandler.ps1 file to execute your custom script**:
-```powershell
-# Find this section in ChangeHandler.ps1 and modify as shown:
-# Optional: Run specific scripts based on status
-try {
-    if ($statusValue -eq "Connected") {
-        # Example using environment variables for script paths
-        # $connectedScript = Join-Path -Path $programFiles -ChildPath "RegistryMonitor\Scripts\OnConnected.ps1"
-        # & $connectedScript
-    }
-    elseif ($statusValue -eq "Disconnected") {
-        # Execute the NLA restart script when disconnected
-        $disconnectedScript = Join-Path -Path $programFiles -ChildPath "RegistryMonitor\Scripts\OnDisconnected.ps1"
-        & $disconnectedScript
-    }
-}
-catch {
-    "[$timestamp] Error executing status-specific script: $_" | Out-File -Append $logFile
+    "[$timestamp] Error performing network actions: $_" | Out-File -Append $logFile
 }
 ```
 
 ### Other Custom Script Examples
 **You can create various scripts to handle network changes**:
-- **Clear DNS cache**: ipconfig /flushdns
-- **Reset network adapter**: Restart-NetAdapter -Name "Ethernet"
-- **Update proxy settings**
-- **Notify users via pop-up messages**
+- **Update proxy settings**: Configure proxy settings based on connection state
+- **Notify users via pop-up messages**: Display notifications when connection state changes
+- **Start/stop local services**: Manage services that should only run in certain network states
+- **Update firewall rules**: Modify Windows Firewall settings based on connection state
 
 ## Deployment via MDM Systems
 
@@ -243,6 +238,19 @@ This service supports multiple Windows architectures:
 
 When installing, ensure you use the correct version for your system architecture. The service automatically handles registry access across different architectures, including the nuances of registry redirection.
 
+## Registry Path Handling
+The service automatically handles differences in registry access between architectures:
+
+- For 32-bit processes on 64-bit Windows, it properly accesses the 64-bit registry hive
+-  For ARM64 systems, it uses the appropriate registry view
+-  Registry monitoring is reliable across all supported platforms
+
+## Network Functionality
+The NLA reevaluation feature works across all supported Windows versions and architectures:
+
+- Uses native Windows APIs appropriate for each platform
+- Falls back to alternative methods when needed
+- Provides consistent network behavior regardless of architecture
 
 ## License
 ### MIT License
