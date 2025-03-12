@@ -105,7 +105,7 @@ You can create various scripts to handle network changes:
 ### Microsoft Intune
 
 1. Create a Win32 App:
-  - Use the (Microsoft Win32 Content Prep Tool[https://github.com/Microsoft/Microsoft-Win32-Content-Prep-Tool]) to create an .intunewin file:
+  - Use the [Microsoft Win32 Content Prep Tool](https://github.com/Microsoft/Microsoft-Win32-Content-Prep-Tool) to create an .intunewin file:
   ```powershell
   IntuneWinAppUtil.exe -c "<extracted_folder_path>" -s "Install.ps1" -o "<output_folder_path>"
   ```
