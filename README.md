@@ -6,6 +6,14 @@ A Windows service that monitors NetSkope NPA Tunnel registry changes and respond
 
 Registry Monitor Service watches for changes to specific registry keys related to NetSkope NPA Tunnel and executes a PowerShell script to handle these changes.
 
+## Features
+
+- Monitors NetSkope NPA Tunnel registry for connection status changes
+- Executes custom scripts when connection status changes
+- Cross-platform support for x64, x86, and ARM64 architectures
+- Resilient registry monitoring with automatic recovery
+- Detailed event logging
+
 ## Prerequisites
 
 - Windows OS (Windows 10/11 or Windows Server 2016+)
@@ -34,12 +42,11 @@ By default, this installs the service to %ProgramFiles%\RegistryMonitor\. To spe
 To uninstall the service manually:
 
 1. Open PowerShell as Administrator
-2. Stop and remove the service:
-```powershell
-Stop-Service -Name RegistryMonitorService -Force
-sc.exe delete RegistryMonitorService
-Remove-Item -Path "$env:ProgramFiles\RegistryMonitor" -Recurse -Force
-```
+2. Navigate to the installation directory or original extracted folder
+3. **Run the uninstallation script**:
+  ```powershell
+  .\Uninstall.ps1
+  ```
 
 ## Custom Action Scripts
 
@@ -52,7 +59,7 @@ The service can execute custom scripts when the NetSkope NPA Tunnel status chang
 
 ### Example: Restart NLA Service When Connection Changes
 
-1. Create a script to restart the Network Location Awareness service when disconnected:
+1. **Create a script to restart the Network Location Awareness service when disconnected**:
 ```powershell
 # filepath: %ProgramFiles%\RegistryMonitor\Scripts\OnDisconnected.ps1
 # Log start of script execution
@@ -72,7 +79,7 @@ try {
     "[$timestamp] Error restarting NLA service: $_" | Out-File -Append $logFile
 }
 ```
-2. Modify the ChangeHandler.ps1 file to execute your custom script:
+2. **Modify the ChangeHandler.ps1 file to execute your custom script**:
 ```powershell
 # Find this section in ChangeHandler.ps1 and modify as shown:
 # Optional: Run specific scripts based on status
@@ -94,122 +101,122 @@ catch {
 ```
 
 ### Other Custom Script Examples
-You can create various scripts to handle network changes:
-- Clear DNS cache: ipconfig /flushdns
-- Reset network adapter: Restart-NetAdapter -Name "Ethernet"
-- Update proxy settings
-- Notify users via pop-up messages
+**You can create various scripts to handle network changes**:
+- **Clear DNS cache**: ipconfig /flushdns
+- **Reset network adapter**: Restart-NetAdapter -Name "Ethernet"
+- **Update proxy settings**
+- **Notify users via pop-up messages**
 
 ## Deployment via MDM Systems
 
 ### Microsoft Intune
 
-1. Create a Win32 App:
+1. **Create a Win32 App**:
   - Use the [Microsoft Win32 Content Prep Tool](https://github.com/Microsoft/Microsoft-Win32-Content-Prep-Tool) to create an .intunewin file:
   ```powershell
   IntuneWinAppUtil.exe -c "<extracted_folder_path>" -s "Install.ps1" -o "<output_folder_path>"
   ```
-2. Add to Intune:
+2. **Add to Intune**:
   - In Intune portal, go to Apps > All Apps > Add
   - Select Windows app (Win32) as the app type
   - Upload the .intunewin file
   - Fill in app information (name, description, publisher)
-3. Installation Command:
+3. **Installation Command**:
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File Install.ps1
 ```
-4. Uninstallation Command:
+4. **Uninstallation Command**:
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -Command "Stop-Service -Name RegistryMonitorService -Force; sc.exe delete RegistryMonitorService; Remove-Item -Path '$env:ProgramFiles\RegistryMonitor' -Recurse -Force"
+powershell.exe -ExecutionPolicy Bypass -File Uninstall.ps1
 ```
-5. Detection Rule:
-- Set up a detection rule using the registry or file path:
-  - Rule type: File
-  - Path: %ProgramFiles%\RegistryMonitor
-  - File or folder: RegistryMonitorService.exe
-  - Detection method: File or folder exists
+5. **Detection Rule**:
+- **Set up a detection rule using the registry or file path**:
+  - **Rule type**: File
+  - **Path**: %ProgramFiles%\RegistryMonitor
+  - **File or folder**: RegistryMonitorService.exe
+  - **Detection method**: File or folder exists
 
 ### JAMF Pro
 
-1. Package Creation:
+1. **Package Creation**:
   - Create a ZIP archive containing all files
   - Upload to JAMF Admin as a package
-2. Create a Policy:
+2. **Create a Policy**:
   - Go to Computers > Policies > New
   - Configure the general settings
   - Under Packages, add your uploaded package
-  - Add a script with these commands:
+  - **Add a script with these commands**:
   ```powershell
   cd /tmp/RegistryMonitorService
   powershell.exe -ExecutionPolicy Bypass -File Install.ps1
   ```
-3. Scoping:
+3. **Scoping**:
   - Scope the policy to appropriate computers
   - Set execution frequency (typically "Once per computer")
 
 ### System Center Configuration Manager (SCCM)
 
-1. Create Application:
+1. **Create Application**:
   - In the SCCM console, go to Software Library > Application Management > Applications
   - Click Create Application
   - Choose Manually specify the application information
-2. Deployment Type:
+2. **Deployment Type**:
   - Create a Script Installer deployment type
-  - Installation program:
+  - **Installation program**:
   ```powershell
   powershell.exe -ExecutionPolicy Bypass -File ".\Install.ps1"
   ```
-  - Uninstall program:
+  - **Uninstall program**:
   ```powershell
-  powershell.exe -ExecutionPolicy Bypass -Command "Stop-Service -Name RegistryMonitorService -Force; sc.exe delete RegistryMonitorService; Remove-Item -Path "$env:ProgramFiles\RegistryMonitor" -Recurse -Force"
+  powershell.exe -ExecutionPolicy Bypass -File ".\Uninstall.ps1"
   ```
-3. Detection Method:
-  - Configure a detection method to look for the service installation:
-    - Setting Type: File
-    - Path: %ProgramFiles%\RegistryMonitor
-    - File or folder: RegistryMonitorService.exe
-    - Detection method: File or folder exists
+3. **Detection Method**:
+  - **Configure a detection method to look for the service installation**:
+    - **Setting Type**: File
+    - **Path**: %ProgramFiles%\RegistryMonitor
+    - **File or folder**: RegistryMonitorService.exe
+    - **Detection method**: File or folder exists
 
 ### AirWatch/Workspace ONE
 
-1. Create a Package:
+1. **Create a Package**:
   - Package all files into a ZIP archive
-2. Upload to Console:
+2. **Upload to Console**:
   - Go to Apps & Books > Applications > Native > Add Application
   - Select Windows as the platform
-3. Configure Install Commands:
-  - Install Command:
+3. **Configure Install Commands**:
+  - **Install Command**:
   ```powershell
   powershell.exe -ExecutionPolicy Bypass -File "%~dp0Install.ps1"
   ```
-  - Uninstall Command:
+  - **Uninstall Command**:
   ```powershell
   powershell.exe -ExecutionPolicy Bypass -Command "Stop-Service -Name RegistryMonitorService -Force; sc.exe delete RegistryMonitorService; Remove-Item -Path \"$env:ProgramFiles\RegistryMonitor\" -Recurse -Force"
   ```
 
-## Kandji
+### Kandji
 
-1. Create Package:
+1. **Create Package**:
   - Package all files into a ZIP archive containing the Install.ps1 script and all required files
-2. Upload to Kandji:
+2. **Upload to Kandji**:
   - In the Kandji web console, navigate to Library > Custom Apps
   - Click + Add App
   - Select Windows as the platform
   - Upload the ZIP package
   - Complete the app metadata (name, description, etc.)
-3. Configure Installation:
-  - Install Command:
+3. **Configure Installation**:
+  - **Install Command**:
   ```powershell
   powershell.exe -ExecutionPolicy Bypass -File "Install.ps1"
   ```
-  - Uninstall Command:
+  - **Uninstall Command**:
   ```powershell
-  powershell.exe -ExecutionPolicy Bypass -Command "Stop-Service -Name RegistryMonitorService -Force; sc.exe delete RegistryMonitorService; Remove-Item -Path \"$env:ProgramFiles\RegistryMonitor\" -Recurse -Force"
+  powershell.exe -ExecutionPolicy Bypass -File "Uninstall.ps1"
   ```
-4. Configure Detection:
-  - Detection Type: File Exists
-  - Path: %ProgramFiles%\RegistryMonitor\RegistryMonitorService.exe
-5. Deployment:
+4. **Configure Detection**:
+  - **Detection Type**: File Exists
+  - **Path**: %ProgramFiles%\RegistryMonitor\RegistryMonitorService.exe
+5. **Deployment**:
   - Add the app to the appropriate Blueprint(s)
   - Choose deployment settings (Auto-install or Self Service)
   - Save and publish changes to devices
@@ -218,13 +225,23 @@ powershell.exe -ExecutionPolicy Bypass -Command "Stop-Service -Name RegistryMoni
 - Check the Windows Event Viewer under Application logs for events from "Registry Monitor Service"
 - Logs are stored in %ProgramFiles%\RegistryMonitor\Logs\
 - For installation issues, run the Install.ps1 script with the -Verbose parameter
-- Common issues:
-  - Service fails to start: Check if .NET Framework is installed and updated
-  - Access denied errors: Ensure you're running installation with admin rights
-  - Script execution policy: If scripts fail to run, temporarily set execution policy with 
+- **Common issues**:
+  - **Service fails to start**: Check if .NET Framework is installed and updated
+  - **Access denied errors**: Ensure you're running installation with admin rights
+  - **Script execution policy**: If scripts fail to run, temporarily set execution policy with 
   ```powershell
   Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
   ```
+
+## Architecture Considerations
+
+This service supports multiple Windows architectures:
+
+- **x64**: Standard 64-bit Windows installations
+- **x86**: 32-bit Windows installations (legacy systems)
+- **ARM64**: Windows on ARM devices (Surface Pro X, etc.)
+
+When installing, ensure you use the correct version for your system architecture. The service automatically handles registry access across different architectures, including the nuances of registry redirection.
 
 
 ## License

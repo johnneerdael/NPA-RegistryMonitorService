@@ -30,7 +30,7 @@ namespace RegistryMonitorService
 
         private Thread monitorThread;
         private bool stopMonitoring = false;
-        private const string RegPath = @"SOFTWARE\NetSkope\NpaTunnel";
+        private const string RegPath = @"HKEY_LOCAL_MACHINE\SOFTWARE\NetSkope\NpaTunnel";
         private const string RegValue = "NpaStatus";
         private const int RetryIntervalSeconds = 30;
 
@@ -68,13 +68,19 @@ namespace RegistryMonitorService
                 RegistryKey regKey = null;
                 try
                 {
-                    // Open the correct key (NpaTunnel) - NpaStatus is a value, not a subkey
-                    regKey = Registry.LocalMachine.OpenSubKey(RegPath, false);
-
+                    // Use the direct approach that we know works
+                    string subKeyPath = @"SOFTWARE\NetSkope\NpaTunnel";
+                    
+                    // Use RegistryKey.OpenBaseKey with specific view
+                    RegistryKey baseKey = RegistryKey.OpenBaseKey(
+                        RegistryHive.LocalMachine, 
+                        Environment.Is64BitOperatingSystem ? RegistryView.Registry64 : RegistryView.Default);
+                    regKey = baseKey.OpenSubKey(subKeyPath, false);
+                    
                     if (regKey == null)
                     {
                         EventLog.WriteEntry("Registry Monitor Service",
-                            $"Registry key not found: {RegPath}. Retrying in {RetryIntervalSeconds} seconds.",
+                            $"Registry key not found: {subKeyPath}. Retrying in {RetryIntervalSeconds} seconds.",
                             EventLogEntryType.Warning);
 
                         // Wait and retry
@@ -84,7 +90,7 @@ namespace RegistryMonitorService
 
                     // Wait for registry changes
                     RegNotifyChangeKeyValue(
-                        regKey.Handle.DangerousGetHandle(), // Convert SafeRegistryHandle to IntPtr
+                        regKey.Handle.DangerousGetHandle(),
                         true,
                         RegistryNotifyFilter.Name | RegistryNotifyFilter.LastSet,
                         IntPtr.Zero,
@@ -107,15 +113,12 @@ namespace RegistryMonitorService
                         currentStatus = "Error";
                     }
 
-                    // Update ProcessStartInfo to use the dynamic script path
-                    // The script path is determined using the Program Files environment variable
-                    // This ensures that the script can be found regardless of where the program is installed
+                    // Execute the PowerShell script
                     try
                     {
                         ProcessStartInfo startInfo = new ProcessStartInfo
                         {
                             FileName = "powershell.exe",
-                            // Use the environment variable-based path
                             Arguments = $"-ExecutionPolicy Bypass -File \"{scriptPath}\" -Status \"{currentStatus}\"",
                             UseShellExecute = false,
                             CreateNoWindow = true
@@ -126,8 +129,16 @@ namespace RegistryMonitorService
                             process.StartInfo = startInfo;
                             process.StartInfo.RedirectStandardOutput = true;
                             process.StartInfo.RedirectStandardError = true;
-                            process.OutputDataReceived += (sender, e) => EventLog.WriteEntry("Registry Monitor Service", $"Output: {e.Data}", EventLogEntryType.Information);
-                            process.ErrorDataReceived += (sender, e) => EventLog.WriteEntry("Registry Monitor Service", $"Error: {e.Data}", EventLogEntryType.Error);
+                            process.OutputDataReceived += (sender, e) => 
+                            {
+                                if (!string.IsNullOrEmpty(e.Data))
+                                    EventLog.WriteEntry("Registry Monitor Service", $"Script output: {e.Data}", EventLogEntryType.Information);
+                            };
+                            process.ErrorDataReceived += (sender, e) => 
+                            {
+                                if (!string.IsNullOrEmpty(e.Data))
+                                    EventLog.WriteEntry("Registry Monitor Service", $"Script error: {e.Data}", EventLogEntryType.Error);
+                            };
                             process.Start();
                             process.BeginOutputReadLine();
                             process.BeginErrorReadLine();
